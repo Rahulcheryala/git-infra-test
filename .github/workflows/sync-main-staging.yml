@@ -1,0 +1,89 @@
+name: Sync main and staging
+run-name: Sync staging after PR merge to main
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-staging-after-main-merge
+  cancel-in-progress: false
+
+jobs:
+  merge-main-into-staging:
+    name: Merge main into staging after PR merge
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    steps:
+      - name: Checkout staging
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+          token: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Sync main to staging
+        env:
+          GH_TOKEN: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          echo "🔍 Verifying token is available..."
+          if [ -z "$GH_TOKEN" ]; then
+            echo "❌ No token available!"
+            exit 1
+          fi
+          echo "✅ Token is configured"
+
+          echo "🔍 Fetching latest main and staging branches..."
+          git fetch origin main:origin-main staging:origin-staging
+
+          echo "🔧 Configuring git for merge commit..."
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          echo "🔄 Ensuring we're on latest staging..."
+          git checkout staging
+          git reset --hard origin-staging
+
+          echo "🔀 Merging main into staging..."
+          echo "ℹ️  After squash merge to main, we always sync back to create a clean point"
+          git merge -s ours --no-ff -m "Sync: Merge main into staging after PR #${PR_NUMBER}" origin-main
+
+          echo "⬆️ Pushing staging to remote..."
+          # The token from actions/checkout should already be configured, but let's be explicit
+          git push https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git staging
+
+          echo "✅ Main successfully synced to staging!"
+          echo "🎯 Staging is now at the same point as main - ready for new development"
+
+  delete-production-promoter-branch:
+    name: Delete production promoter branch after PR merge to main
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'production-promoter'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete production promoter branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "🧹 Deleting remote branch production-promoter if present..."
+          if git ls-remote --heads origin production-promoter | grep -q 'refs/heads/production-promoter'; then
+            git push origin --delete production-promoter || true
+            echo "✅ Deleted remote branch production-promoter"
+          else
+            echo "ℹ️ Remote branch production-promoter not found; skipping"
+          fi
