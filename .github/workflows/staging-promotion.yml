@@ -297,6 +297,8 @@ jobs:
 
       - name: Build promoter branch with grouped squash commits
         if: steps.check_existing.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         id: build_temp_branch
         run: |
           set -euo pipefail
@@ -357,7 +359,7 @@ jobs:
       - name: Create or reuse PR from promoter branch to staging
         id: create_pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
