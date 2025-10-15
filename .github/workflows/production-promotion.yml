@@ -50,7 +50,7 @@ jobs:
       - name: Analyze staging commits for production promotion
         id: analyze
         env:
-          GITHUB_TOKEN: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
@@ -230,7 +230,7 @@ jobs:
         with:
           ref: staging
           fetch-depth: 0
-          token: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Ensure full fetch
         run: |
@@ -241,7 +241,7 @@ jobs:
       - name: Detect existing PR for promoter branch
         id: check_existing
         env:
-          GH_TOKEN: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           REPO="${GITHUB_REPOSITORY}"
@@ -284,7 +284,7 @@ jobs:
       - name: Create or reuse PR from promoter branch to main
         id: create_pr
         env:
-          GH_TOKEN: ${{ secrets.BYPASS_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
